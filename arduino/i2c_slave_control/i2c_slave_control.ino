@@ -51,21 +51,24 @@ void speedControl(int s)
     pwm = 0 - s;
   }
   
-  pwm = pwm > 100 ? 100 : pwm;
+  pwm = pwm >= 100 ? 100 : pwm;
   digitalWrite(m1s, HIGH);
-  delayMicroseconds(pwm * 10);
+  delayMicroseconds(pwm * 10 + 1);
   digitalWrite(m1s, LOW);  
-  delayMicroseconds(1000 - pwm * 10);
+  delayMicroseconds(1001 - pwm * 10);
 }
 
 void veerControl(int d)
 {
-  if (d > 0) {
-    digitalWrite(m2a, HIGH);
+  if (d == 0) {
+    digitalWrite(m2a, LOW);
     digitalWrite(m2b, LOW);
-  } else {
+  } else if (d == 1) {
     digitalWrite(m2a, LOW);
     digitalWrite(m2b, HIGH);
+  } else if (d == -1) {
+    digitalWrite(m2a, HIGH);
+    digitalWrite(m2b, LOW);
   }
 }
 

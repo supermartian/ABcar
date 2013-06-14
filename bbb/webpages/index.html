@@ -1,0 +1,186 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0," />
+<script src="/js/socket.io/socket.io.js"></script>
+<script src="/js/jquery.js"></script>
+<style>
+* {
+  -webkit-touch-callout: none; /* prevent callout to copy image, etc when tap to hold */
+  -webkit-text-size-adjust: none; /* prevent webkit from resizing text to fit */
+/* make transparent link selection, adjust last value opacity 0 to 1.0 */
+  -webkit-tap-highlight-color: rgba(0,0,0,0);
+  -webkit-user-select: none; /* prevent copy paste, to allow, change 'none' to 'text' */
+  -webkit-tap-highlight-color: rgba(0,0,0,0);
+}
+body {
+    margin: 0px;
+    padding: 0px;
+    background: #ccc;
+}
+#main {
+    width: 100%;
+    margin-bottom:0px;
+}
+#camera {
+    width: 600px;
+    height: 480px;
+    background: #a5c3b1;
+    z-index: 10;
+    position: absolute;
+}
+#controller {
+    width: 100%;
+    height: 100%;
+    background: #f5c781;
+    z-index: 1;
+    position: absolute;
+}
+</style>
+</head>
+<body>
+    <div id="main">
+        <div id="camera"></div>
+        <canvas id="controller""></canvas>
+    </div>
+</body>
+<script>
+    document.ontouchmove = function(e) {e.preventDefault()};
+    $("#camera").offset({top:0, left:$(window).width()/2 - 300});
+
+    var canvas, c;
+    setupCanvas(); 
+
+    var moveC_orig = {
+        x:100,
+        y:$(window).height() - 200,
+        r:40
+    };
+    var camC_orig = {
+        x:$(window).width() - 100,
+        y:$(window).height() - 200,
+        r:40
+    };
+
+    var moveC = {
+        x:100,
+        y:$(window).height() - 200,
+        r:40
+    };
+    var camC = {
+        x:$(window).width() - 100,
+        y:$(window).height() - 200,
+        r:40
+    };
+
+    var pm, pc;
+
+    canvas.addEventListener("touchstart", function(e) {
+        var touches = e.changedTouches;
+        for (var i = 0; i < touches.length; i++) {
+            var touch = touches[i];
+            if (checkTouch(touch.pageX, touch.pageY, moveC)) {
+                pm = touch.identifier;
+            }
+            if (checkTouch(touch.pageX, touch.pageY, camC)) {
+                pc = touch.identifier;
+            }
+        }
+    },false);
+
+    canvas.addEventListener("touchmove", function(e) {
+        var touches = e.changedTouches;
+        for (var i = 0; i < touches.length; i++) {
+            var touch = touches[i];
+            if (pm === touch.identifier) {
+                moveC.x = touch.pageX;
+                moveC.y = touch.pageY;
+            }
+            if (pc === touch.identifier) {
+                camC.x = touch.pageX;
+                camC.y = touch.pageY;
+            }
+        }
+    },false);
+
+    canvas.addEventListener("touchend", function(e) {
+        var touches = e.changedTouches;
+        for (var i = 0; i < touches.length; i++) {
+            var touch = touches[i];
+            if (pm === touch.identifier) {
+                moveC.x = moveC_orig.x;
+                moveC.y = moveC_orig.y;
+            }
+            if (pc === touch.identifier) {
+                camC.x = camC_orig.x;
+                camC.y = camC_orig.y;
+            }
+        }
+        draw();
+    },false);
+
+    setInterval(draw, 5);
+
+    var socket = io.connect('http://192.168.2.1:8000');
+    var move = {
+        sx:0,
+        sy:0,
+        speed:0,
+        veer:0
+    };
+    setInterval(control, 20);
+
+    function control() {
+        move.sx = camC.x - camC_orig.x + 60;
+        move.sy = camC.y - camC_orig.y + 60;
+
+        move.speed = (moveC.y - moveC_orig.y) * 3;
+        if (moveC.x - moveC_orig.x > 15) {
+            move.veer = 1;
+        } else if (moveC.x - moveC_orig.x < -15) {
+            move.veer = -1;
+        } else {
+            move.veer = 0;
+        }
+
+        // Do the regulation
+        move.sx = move.sx > 120 ? 120 : move.sx;
+        move.sy = move.sy > 120 ? 120 : move.sy;
+        move.sx = move.sx < 30 ? 30 : move.sx;
+        move.sy = move.sy < 30 ? 30 : move.sy;
+        move.speed = move.speed > 100 ? 100 : move.speed;
+        move.speed = move.speed < -100 ? -100 : move.speed;
+
+        // Send it!
+        socket.emit('move', move);
+    }
+
+    function checkTouch(tx, ty, obj) {
+        return getDistance(tx, ty, obj.x, obj.y) < obj.r;
+    }
+
+    function getDistance(x1, y1, x2, y2) {
+        return Math.sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
+    }
+
+    function draw() {
+        c.clearRect(0,0,canvas.width, canvas.height);
+        c.beginPath();
+        c.arc(moveC.x,moveC.y,moveC.r,0,2*Math.PI);
+        c.stroke();
+ 
+        c.beginPath();
+        c.arc(camC.x,camC.y,camC.r,0,2*Math.PI);
+        c.stroke();
+    }
+
+    function setupCanvas() {
+        canvas = document.getElementById('controller');
+        canvas.height = $(window).height();
+        canvas.width = $(window).width();
+        c = canvas.getContext( '2d' );
+        c.strokeStyle = "#ffffff";
+        c.lineWidth =2; 
+    }
+</script>
+</html>
